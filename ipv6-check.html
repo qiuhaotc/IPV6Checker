@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPv6 网络检测</title>
+  <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #f0f2f5; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    .page {
+      display: block;
+      width: 100%;
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 48px 24px 64px;
+    }
+
+    .main-card {
+      display: block;
+      width: 100%;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 20px rgba(0,0,0,.08);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 20px 28px;
+      border-bottom: 1px solid #ebeef5;
+    }
+
+    .card-body {
+      display: block;
+      padding: 28px;
+    }
+
+    /* 信息提示条 */
+    .info-bar {
+      display: block;
+      background: #ecf5ff;
+      border: 1px solid #b3d8ff;
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: #409eff;
+      margin-bottom: 24px;
+    }
+
+    /* 分隔线 */
+    .divider {
+      display: block;
+      height: 1px;
+      background: #ebeef5;
+      margin: 28px 0;
+    }
+
+    code {
+      background: #f5f7fa;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      word-break: break-all;
+      font-size: 13px;
+    }
+
+    /* 结果区 */
+    .result-wrap { display: block; }
+
+    /* 总结论 */
+    .verdict {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+    .verdict-ok   { background: #f0f9eb; border: 1px solid #c2e7b0; }
+    .verdict-fail { background: #fef0f0; border: 1px solid #fbc4c4; }
+    .verdict-icon { font-size: 24px; line-height: 1; }
+    .verdict-text { font-size: 17px; font-weight: 600; color: #303133; }
+
+    /* 详情 section */
+    .detail-section {
+      display: block;
+      margin-bottom: 24px;
+      border: 1px solid #ebeef5;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .section-title {
+      display: block;
+      padding: 12px 16px;
+      background: #f5f7fa;
+      font-weight: 600;
+      font-size: 14px;
+      color: #303133;
+      border-bottom: 1px solid #ebeef5;
+    }
+
+    /* 详情表格 */
+    .detail-table { width: 100%; border-collapse: collapse; }
+    .detail-table tr { border-bottom: 1px solid #ebeef5; }
+    .detail-table tr:last-child { border-bottom: none; }
+    .dt-label {
+      width: 170px;
+      padding: 14px 16px;
+      background: #fafafa;
+      color: #606266;
+      font-size: 14px;
+      font-weight: 500;
+      vertical-align: top;
+      white-space: nowrap;
+      border-right: 1px solid #ebeef5;
+    }
+    .dt-value {
+      padding: 12px 16px;
+      font-size: 14px;
+      color: #303133;
+      word-break: break-all;
+      vertical-align: middle;
+    }
+
+    /* 步骤列表 */
+    .step-list { display: block; padding: 16px; }
+    .step-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .step-item:last-child { margin-bottom: 0; }
+    .step-dot {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-dot-finish { background: #67c23a; color: #fff; }
+    .step-dot-error  { background: #f56c6c; color: #fff; }
+    .step-dot-process { background: #409eff; color: #fff; }
+    .step-dot-wait   { background: #c0c4cc; color: #fff; }
+    .step-content { flex: 1; min-width: 0; }
+    .step-title { font-size: 14px; font-weight: 600; color: #303133; margin-bottom: 4px; }
+    .step-desc  { font-size: 13px; color: #606266; word-break: break-all; line-height: 1.6; }
+
+    /* 警告条 */
+    .warn-bar {
+      display: block;
+      background: #fdf6ec;
+      border: 1px solid #faecd8;
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #e6a23c;
+      line-height: 1.6;
+    }
+
+    /* el-tag 字体覆盖 */
+    .el-tag { font-family: monospace; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="page">
+    <div class="main-card">
+
+      <div class="card-header">
+        <span style="font-size:26px;">🌐</span>
+        <span style="font-size:20px;font-weight:700;">IPv6 网络支持检测</span>
+      </div>
+
+      <div class="card-body">
+
+        <div class="info-bar">
+          ℹ️ 综合使用 <b>外部 IPv6-only API 连通性</b> 与 <b>WebRTC 本地地址采集</b> 两种方式检测本机网络是否支持 IPv6。
+        </div>
+
+        <el-button type="primary" size="large" :loading="checking" :disabled="checking" @click="startCheck">
+          <span v-if="!checking">🔍&nbsp; 开始检测</span>
+          <span v-else>检测中，请稍候...</span>
+        </el-button>
+
+        <div v-if="checked" class="result-wrap">
+
+          <div class="divider"></div>
+
+          <div :class="['verdict', overall ? 'verdict-ok' : 'verdict-fail']">
+            <span class="verdict-icon">{{ overall ? '✅' : '❌' }}</span>
+            <span class="verdict-text">{{ overall ? '您的网络支持 IPv6' : '您的网络不支持 IPv6' }}</span>
+          </div>
+
+          <div class="detail-section">
+            <div class="section-title">检测详情</div>
+            <table class="detail-table">
+              <tbody>
+                <tr>
+                  <td class="dt-label">公网 IPv6 连通性</td>
+                  <td class="dt-value">
+                    <el-tag :type="apiOk ? 'success' : 'danger'">
+                      {{ apiOk ? '✅ 通过（可访问 IPv6 互联网）' : '❌ 失败（无法连接 IPv6-only 服务）' }}
+                    </el-tag>
+                  </td>
+                </tr>
+                <tr v-if="publicIP">
+                  <td class="dt-label">公网 IPv6 地址</td>
+                  <td class="dt-value"><code>{{ publicIP }}</code></td>
+                </tr>
+                <tr>
+                  <td class="dt-label">本地 IPv6（WebRTC）</td>
+                  <td class="dt-value">
+                    <span v-if="localIPs.length">
+                      <el-tag
+                        v-for="ip in localIPs"
+                        :key="ip"
+                        :type="ip.startsWith('fe80') ? 'warning' : 'success'"
+                        style="margin:3px 4px 3px 0;"
+                      >{{ ip }}{{ ip.startsWith('fe80') ? '（链路本地）' : '' }}</el-tag>
+                    </span>
+                    <el-tag v-else type="info">未检测到</el-tag>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="dt-label">检测时间</td>
+                  <td class="dt-value">{{ checkTime }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="detail-section">
+            <div class="section-title">检测步骤</div>
+            <div class="step-list">
+              <div v-for="(s, i) in steps" :key="i" class="step-item">
+                <div :class="['step-dot', 'step-dot-' + s.status]">{{ i + 1 }}</div>
+                <div class="step-content">
+                  <div class="step-title">{{ s.title }}</div>
+                  <div class="step-desc">{{ s.desc }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="warn-bar">
+            ⚠️ 说明：WebRTC 地址采集需浏览器权限支持，隐私模式或安全策略可能限制。外部 API 检测需访问公网，防火墙或代理可能影响结果。
+          </div>
+
+        </div><!-- /result-wrap -->
+
+      </div><!-- /card-body -->
+    </div><!-- /main-card -->
+  </div><!-- /page -->
+</div><!-- /app -->
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://unpkg.com/element-plus"></script>
+<script>
+const { createApp, ref } = Vue
+
+createApp({
+  setup() {
+    const checking  = ref(false)
+    const checked   = ref(false)
+    const overall   = ref(false)
+    const apiOk     = ref(false)
+    const publicIP  = ref('')
+    const localIPs  = ref([])
+    const checkTime = ref('')
+    const steps     = ref([])
+
+    // ── 方式一：尝试连接 IPv6-only 公网服务 ──────────────────────────────
+    async function checkPublicIPv6() {
+      const endpoints = [
+        {
+          // IPv6-only，返回纯文本 IP
+          url: 'https://v6.ident.me',
+          parse: text => text.trim()
+        },
+        {
+          // IPv6-only Cloudflare 节点
+          url: 'https://ipv6.icanhazip.com',
+          parse: text => text.trim()
+        },
+        {
+          // test-ipv6.com 官方 API
+          url: 'https://ipv6.lookup.test-ipv6.com/ip/?callback=x',
+          parse: text => {
+            const m = text.match(/"([\.0-9a-fA-F:]+)"/);
+            return m ? m[1] : ''
+          }
+        }
+      ]
+      for (const { url, parse } of endpoints) {
+        const ctrl  = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 7000)
+        try {
+          const res = await fetch(url, { signal: ctrl.signal })
+          clearTimeout(timer)
+          if (res.ok) {
+            const ip = parse(await res.text())
+            // 必须是真正的 IPv6（含冒号）
+            if (ip && ip.includes(':')) return { ok: true, ip }
+          }
+        } catch {
+          clearTimeout(timer)
+        }
+      }
+      return { ok: false, ip: '' }
+    }
+
+    // ── 方式二：WebRTC ICE 候选地址采集 ──────────────────────────────────
+    function getLocalIPv6ViaWebRTC() {
+      return new Promise(resolve => {
+        const found = new Set()
+        let pc
+
+        const finish = () => {
+          try { pc && pc.close() } catch {}
+          // 过滤掉 IPv4-mapped（::ffff:x.x.x.x）
+          resolve([...found].filter(ip => !ip.startsWith('::ffff:')))
+        }
+
+        try {
+          pc = new RTCPeerConnection({
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+          })
+          pc.createDataChannel('')
+          pc.createOffer()
+            .then(o => pc.setLocalDescription(o))
+            .catch(finish)
+
+          pc.onicecandidate = e => {
+            if (!e.candidate) { finish(); return }
+            // 从 candidate 字符串中提取 IPv6
+            const m = e.candidate.candidate.match(
+              /([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}/
+            )
+            if (m) found.add(m[0])
+          }
+        } catch {
+          finish(); return
+        }
+
+        setTimeout(finish, 6000)
+      })
+    }
+
+    // ── 主检测流程 ────────────────────────────────────────────────────────
+    async function startCheck() {
+      checking.value = true
+      checked.value  = false
+      steps.value    = []
+      apiOk.value    = false
+      publicIP.value = ''
+      localIPs.value = []
+      overall.value  = false
+
+      // Step 1
+      steps.value.push({ title: '公网 IPv6 连通性测试', desc: '正在连接 IPv6-only 外部服务...', status: 'process' })
+      const api = await checkPublicIPv6()
+      steps.value[0] = {
+        title:  '公网 IPv6 连通性测试',
+        desc:   api.ok ? `连接成功，公网 IPv6 地址: ${api.ip}` : '连接失败（请求超时或服务不可达）',
+        status: api.ok ? 'finish' : 'error'
+      }
+      apiOk.value   = api.ok
+      publicIP.value = api.ip
+
+      // Step 2
+      steps.value.push({ title: 'WebRTC 本地 IPv6 地址检测', desc: '正在采集 ICE 候选地址...', status: 'process' })
+      const wrtcIPs = await getLocalIPv6ViaWebRTC()
+      steps.value[1] = {
+        title:  'WebRTC 本地 IPv6 地址检测',
+        desc:   wrtcIPs.length ? `发现本地 IPv6: ${wrtcIPs.join(' | ')}` : '未发现本地 IPv6 地址',
+        status: wrtcIPs.length ? 'finish' : 'error'
+      }
+      localIPs.value = wrtcIPs
+
+      // Step 3：综合判断
+      const supported = api.ok || wrtcIPs.length > 0
+      steps.value.push({
+        title:  '综合判断',
+        desc:   supported
+          ? (api.ok ? '公网 IPv6 连通，网络完整支持 IPv6' : '存在本地 IPv6 地址，但公网 IPv6 连通性受限')
+          : '所有检测均失败，网络不支持 IPv6',
+        status: supported ? 'finish' : 'error'
+      })
+
+      overall.value   = supported
+      checkTime.value = new Date().toLocaleString('zh-CN')
+      checking.value  = false
+      checked.value   = true
+    }
+
+    return {
+      checking, checked, overall, apiOk,
+      publicIP, localIPs, checkTime, steps,
+      startCheck
+    }
+  }
+}).use(ElementPlus).mount('#app')
+</script>
+</body>
+</html>
